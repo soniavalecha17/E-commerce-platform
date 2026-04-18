@@ -1,0 +1,233 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import { 
+    Users, Package, ShoppingCart, IndianRupee, Store, 
+    UserCheck, ShieldCheck, CheckCircle, Clock, Eye, LogOut
+} from 'lucide-react';
+import API from '../utils/app';
+
+const AdminDashboard = ({ setView }) => {
+    const [stats, setStats] = useState({ totalUsers: 0, totalProducts: 0, totalOrders: 0, totalRevenue: 0 });
+    const [artisanData, setArtisanData] = useState([]);
+    const [customerData, setCustomerData] = useState([]);
+    const [allProducts, setAllProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchAllAdminData = useCallback(async () => {
+        try {
+            const [statsRes, performanceRes, customerRes, productRes] = await Promise.all([
+                API.get("/admin/stats"),
+                API.get("/admin/artisan-performance"),
+                API.get("/admin/customer-stats"),
+                API.get("/admin/all")
+            ]);
+            
+            setStats(statsRes.data.data);
+            setArtisanData(performanceRes.data.data);
+            setCustomerData(customerRes.data.data);
+            setAllProducts(productRes.data.data);
+        } catch (err) {
+            console.error("Error fetching admin data:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchAllAdminData();
+    }, [fetchAllAdminData]);
+
+    const handleToggleApproval = async (productId) => {
+        try {
+            const response = await API.patch(`/admin/approve-product/${productId}`);
+            if (response.status === 200) {
+                await fetchAllAdminData();
+            }
+        } catch (err) {
+            alert("Failed to update product status");
+        }
+    };
+
+    const handleToggleVerification = async (userId) => {
+        try {
+            const response = await API.patch(`/admin/verify-artisan/${userId}`);
+            if (response.status === 200) {
+                alert("Artisan verification status updated!");
+                await fetchAllAdminData();
+            }
+        } catch (err) {
+            const errorMessage = err.response?.data?.message || "Verification failed";
+            alert(errorMessage); 
+        }
+    };
+
+    if (loading) return (
+        <div className="flex h-screen items-center justify-center font-bold text-[#2D6A4F] animate-pulse">
+            Syncing Command Center...
+        </div>
+    );
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+            {/* 🛠 ADMIN TOP NAV */}
+            <nav className="bg-gray-900 text-white px-8 py-4 flex justify-between items-center shadow-lg">
+                <div className="flex items-center gap-3">
+                    <div className="bg-[#52B788] p-2 rounded-lg text-gray-900">
+                        <ShieldCheck size={20} />
+                    </div>
+                    <div>
+                        <h1 className="text-lg font-black tracking-tight">ArtLink Admin</h1>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-widest">Management Console</p>
+                    </div>
+                </div>
+                
+                <button 
+                    onClick={() => setView('login')}
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all text-sm font-bold text-white"
+                >
+                    <LogOut size={16} className="text-red-400" />
+                    Exit to Portal
+                </button>
+            </nav>
+
+            <div className="p-6 md:p-10 max-w-7xl mx-auto w-full">
+                {/* 📊 Analytics Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={<IndianRupee />} bgColor="bg-green-100" />
+                    <StatCard title="Total Orders" value={stats.totalOrders} icon={<ShoppingCart />} bgColor="bg-blue-100" />
+                    <StatCard title="Active Users" value={stats.totalUsers} icon={<Users />} bgColor="bg-purple-100" />
+                    <StatCard title="Total Products" value={stats.totalProducts} icon={<Package />} bgColor="bg-orange-100" />
+                </div>
+
+                <div className="grid grid-cols-1 gap-10">
+                    
+                    {/* 🥇 1. PRODUCT APPROVALS SECTION */}
+                    <DashboardTable 
+                        title="Product Approvals" 
+                        icon={<Package className="text-orange-500" />}
+                        headers={["Product Name", "Price", "Status", "Action"]}
+                    >
+                        {allProducts.map((product) => (
+                            <tr key={product._id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-6 py-4 font-bold">{product.name}</td>
+                                <td className="px-6 py-4 text-gray-500">₹{product.price}</td>
+                                <td className="px-6 py-4">
+                                    {product.isApproved ? 
+                                        <span className="text-green-600 font-bold flex items-center gap-1"><CheckCircle size={14}/> Approved</span> : 
+                                        <span className="text-orange-500 font-bold flex items-center gap-1"><Clock size={14}/> Pending</span>
+                                    }
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <button 
+                                        onClick={() => handleToggleApproval(product._id)}
+                                        className={`text-xs font-bold px-4 py-2 rounded-full border transition-all ${product.isApproved ? 'text-red-500 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                                    >
+                                        {product.isApproved ? "Disapprove" : "Approve"}
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </DashboardTable>
+
+                    {/* 🎨 2. ARTISAN MANAGEMENT (With Robust ID Check) */}
+                    <DashboardTable 
+                        title="Artisan Management" 
+                        icon={<Store className="text-[#2D6A4F]" />}
+                        headers={["Artisan", "Verification", "ID Proof", "Items", "Action"]}
+                    >
+                        {artisanData.map((artisan) => {
+                            // Robust check for the ID proof link across multiple possible keys
+                            const idLink = artisan.idProof || artisan.idDocument || artisan.verificationUrl || artisan.document;
+                            
+                            return (
+                                <tr key={artisan._id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-6 py-4 font-bold">{artisan.username}</td>
+                                    <td className="px-6 py-4">
+                                        {artisan.isVerified ? 
+                                            <span className="text-blue-600 font-bold flex items-center gap-1"><ShieldCheck size={14}/> Verified</span> : 
+                                            <span className="text-gray-400 italic">Pending</span>
+                                        }
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {idLink ? (
+                                            <a 
+                                                href={idLink} 
+                                                target="_blank" 
+                                                rel="noreferrer"
+                                                className="flex items-center gap-1 text-blue-500 hover:underline font-bold text-xs"
+                                            >
+                                                <Eye size={14} /> View Document
+                                            </a>
+                                        ) : (
+                                            <span className="text-red-400 text-xs">No ID Uploaded</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-center">{artisan.productCount}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button 
+                                            onClick={() => handleToggleVerification(artisan._id)}
+                                            className={`font-bold text-xs transition-colors ${artisan.isVerified ? 'text-red-400 hover:text-red-600' : 'text-[#2D6A4F] hover:underline'}`}
+                                        >
+                                            {artisan.isVerified ? "Revoke Verification" : "Verify Artisan"}
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </DashboardTable>
+
+                    {/* 🛒 3. CUSTOMER INSIGHTS */}
+                    <DashboardTable 
+                        title="Customer Insights" 
+                        icon={<UserCheck className="text-blue-600" />}
+                        headers={["Customer Name", "Total Orders", "Total Spent"]}
+                    >
+                        {customerData.map((customer) => (
+                            <tr key={customer._id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 font-bold">{customer.username}</td>
+                                <td className="px-6 py-4">{customer.orderCount} orders</td>
+                                <td className="px-6 py-4 text-right font-black text-blue-700">₹{customer.totalSpent.toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </DashboardTable>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ... (Table and StatCard components remain the same)
+const DashboardTable = ({ title, icon, headers, children }) => (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                {icon} {title}
+            </h2>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left">
+                <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase tracking-wider">
+                    <tr>
+                        {headers.map((h, i) => (
+                            <th key={i} className={`px-6 py-4 ${i === headers.length - 1 ? 'text-right' : ''}`}>{h}</th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 text-sm">
+                    {children}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
+
+const StatCard = ({ title, value, icon, bgColor }) => (
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-5 transition-transform hover:scale-[1.02]">
+        <div className={`${bgColor} p-4 rounded-2xl`}>{icon}</div>
+        <div>
+            <p className="text-xs text-gray-400 font-bold uppercase">{title}</p>
+            <p className="text-2xl font-black text-gray-900">{value}</p>
+        </div>
+    </div>
+);
+
+export default AdminDashboard;
