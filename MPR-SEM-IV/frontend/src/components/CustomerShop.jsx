@@ -105,18 +105,7 @@ const CustomerShop = ({view, setView, setActiveTab, wishlist, toggleWishlist, ca
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="relative">
-            {/* CORRECTED VIEW SWITCHER */}
-            <select 
-              value="customer"
-              onChange={(e) => setView(e.target.value)}
-              className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 pr-10 text-sm font-medium focus:outline-none cursor-pointer hover:border-[#2D6A4F] transition-all"
-            >
-              <option value="customer">Customer View</option>
-              <option value="artisan">Artisan View</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-          </div>
+          
           
           <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
             <div className="text-right">

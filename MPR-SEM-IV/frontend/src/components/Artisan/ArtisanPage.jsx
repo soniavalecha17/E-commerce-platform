@@ -12,6 +12,16 @@ export default function ArtisanPage() {
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [view, setView] = useState('artisan'); 
   const [hindiVoice, setHindiVoice] = useState(null);
+  const [artisanName, setArtisanName] = useState("Artisan"); // State for name
+
+  // 👤 Load User Data from LocalStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setArtisanName(userData.username || "Artisan");
+    }
+  }, []);
 
   // 🔊 Force-load Hindi Voice on component mount
   useEffect(() => {
@@ -22,29 +32,21 @@ export default function ArtisanPage() {
     };
 
     loadVoices();
-    // Chrome needs this event listener because voices load asynchronously
     window.speechSynthesis.onvoiceschanged = loadVoices;
   }, []);
 
-  // 🎙 Custom Speak Function for Hindi
   const speakHindi = (text) => {
-    window.speechSynthesis.cancel(); // Stop any current speech
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    
-    if (hindiVoice) {
-      utterance.voice = hindiVoice;
-    }
-    
+    if (hindiVoice) utterance.voice = hindiVoice;
     utterance.lang = 'hi-IN';
     utterance.pitch = 1;
-    utterance.rate = 0.9; // Slightly slower for better clarity for rural users
+    utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
   };
 
-  // 🧠 Voice Command Brain
   const handleVoiceCommand = (command) => {
     const lowerCommand = command.toLowerCase();
-
     if (lowerCommand.includes("सामान") || lowerCommand.includes("प्रोडक्ट") || lowerCommand.includes("उत्पाद")) {
       setActiveTab("Products");
       speakHindi("ठीक है, आपके उत्पाद दिखा रही हूँ।");
@@ -84,19 +86,12 @@ export default function ArtisanPage() {
         </div>
 
         <div style={headerRight}>
-          <div className="relative">
-            <select 
-              value={view}
-              onChange={(e) => setView(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-full px-6 py-2 pr-10 text-sm font-bold text-[#0d9488] focus:outline-none cursor-pointer"
-            >
-              <option value="artisan">Artisan View</option>
-              <option value="customer">Customer View</option>
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-[#0d9488] pointer-events-none" size={16} />
-          </div>
           <div style={profileArea}>
-            <div style={avatarSquare}>N</div>
+            {/* Displaying Artisan Name and First Letter Icon */}
+            <span style={userNameStyle}>{artisanName}</span>
+            <div style={avatarSquare}>
+              {artisanName.charAt(0).toUpperCase()}
+            </div>
           </div>
         </div>
       </header>
@@ -139,8 +134,9 @@ const headerBar = { display: "flex", justifyContent: "space-between", alignItems
 const logoSection = { display: "flex", alignItems: "center" };
 const logoText = { fontSize: "28px", fontWeight: "900", color: "#0d9488" };
 const headerRight = { display: "flex", alignItems: "center", gap: "20px" };
-const profileArea = { display: "flex", alignItems: "center" };
-const avatarSquare = { width: "45px", height: "45px", backgroundColor: "#1e293b", color: "white", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: "18px" };
+const profileArea = { display: "flex", alignItems: "center", gap: "12px" }; // Added gap for text
+const userNameStyle = { fontSize: "16px", fontWeight: "700", color: "#1e293b", textTransform: "capitalize" };
+const avatarSquare = { width: "45px", height: "45px", backgroundColor: "#0d9488", color: "white", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: "18px", boxShadow: "0 4px 6px rgba(13, 148, 136, 0.2)" };
 const actionGrid = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", padding: "30px 40px" };
 const actionCard = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", padding: "25px", backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "24px", cursor: "pointer", transition: "all 0.2s", color: "#64748b", fontWeight: "800", fontSize: "16px" };
 const activeActionCard = { ...actionCard, borderColor: "#0d9488", backgroundColor: "rgba(13, 148, 136, 0.05)", color: "#0d9488", transform: "scale(1.02)", boxShadow: "0 10px 20px rgba(0,0,0,0.05)" };

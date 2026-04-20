@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
     Users, Package, ShoppingCart, IndianRupee, Store, 
-    UserCheck, ShieldCheck, CheckCircle, Clock, Eye, LogOut
+    UserCheck, ShieldCheck, CheckCircle, Clock, Eye, LogOut, X
 } from 'lucide-react';
 import API from '../utils/app';
 
@@ -11,6 +11,9 @@ const AdminDashboard = ({ setView }) => {
     const [customerData, setCustomerData] = useState([]);
     const [allProducts, setAllProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    
+    // State for the Image Viewer/Inspection Modal
+    const [selectedProduct, setSelectedProduct] = useState(null);
 
     const fetchAllAdminData = useCallback(async () => {
         try {
@@ -40,6 +43,10 @@ const AdminDashboard = ({ setView }) => {
         try {
             const response = await API.patch(`/admin/approve-product/${productId}`);
             if (response.status === 200) {
+                // If we are approving from inside the modal, close it after success
+                if (selectedProduct && selectedProduct._id === productId) {
+                    setSelectedProduct(null);
+                }
                 await fetchAllAdminData();
             }
         } catch (err) {
@@ -104,22 +111,30 @@ const AdminDashboard = ({ setView }) => {
                     <DashboardTable 
                         title="Product Approvals" 
                         icon={<Package className="text-orange-500" />}
-                        headers={["Product Name", "Price", "Status", "Action"]}
+                        headers={["Product Name", "Price", "Status", "Inspection", "Action"]}
                     >
                         {allProducts.map((product) => (
-                            <tr key={product._id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4 font-bold">{product.name}</td>
-                                <td className="px-6 py-4 text-gray-500">₹{product.price}</td>
+                            <tr key={product._id} className="hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                                <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
+                                <td className="px-6 py-4 text-gray-500 font-medium">₹{product.price}</td>
                                 <td className="px-6 py-4">
                                     {product.isApproved ? 
                                         <span className="text-green-600 font-bold flex items-center gap-1"><CheckCircle size={14}/> Approved</span> : 
                                         <span className="text-orange-500 font-bold flex items-center gap-1"><Clock size={14}/> Pending</span>
                                     }
                                 </td>
+                                <td className="px-6 py-4">
+                                    <button 
+                                        onClick={() => setSelectedProduct(product)}
+                                        className="flex items-center gap-2 text-blue-600 font-bold text-xs hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all"
+                                    >
+                                        <Eye size={14} /> View Product
+                                    </button>
+                                </td>
                                 <td className="px-6 py-4 text-right">
                                     <button 
                                         onClick={() => handleToggleApproval(product._id)}
-                                        className={`text-xs font-bold px-4 py-2 rounded-full border transition-all ${product.isApproved ? 'text-red-500 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                                        className={`text-xs font-bold px-4 py-2 rounded-xl border transition-all ${product.isApproved ? 'text-red-500 border-red-100 hover:bg-red-50' : 'text-green-600 border-green-100 hover:bg-green-50'}`}
                                     >
                                         {product.isApproved ? "Disapprove" : "Approve"}
                                     </button>
@@ -128,14 +143,13 @@ const AdminDashboard = ({ setView }) => {
                         ))}
                     </DashboardTable>
 
-                    {/* 🎨 2. ARTISAN MANAGEMENT (With Robust ID Check) */}
+                    {/* 🎨 2. ARTISAN MANAGEMENT */}
                     <DashboardTable 
                         title="Artisan Management" 
                         icon={<Store className="text-[#2D6A4F]" />}
                         headers={["Artisan", "Verification", "ID Proof", "Items", "Action"]}
                     >
                         {artisanData.map((artisan) => {
-                            // Robust check for the ID proof link across multiple possible keys
                             const idLink = artisan.idProof || artisan.idDocument || artisan.verificationUrl || artisan.document;
                             
                             return (
@@ -161,7 +175,7 @@ const AdminDashboard = ({ setView }) => {
                                             <span className="text-red-400 text-xs">No ID Uploaded</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-center">{artisan.productCount}</td>
+                                    <td className="px-6 py-4 text-center font-bold">{artisan.productCount}</td>
                                     <td className="px-6 py-4 text-right">
                                         <button 
                                             onClick={() => handleToggleVerification(artisan._id)}
@@ -184,18 +198,83 @@ const AdminDashboard = ({ setView }) => {
                         {customerData.map((customer) => (
                             <tr key={customer._id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 font-bold">{customer.username}</td>
-                                <td className="px-6 py-4">{customer.orderCount} orders</td>
+                                <td className="px-6 py-4 text-gray-600 font-medium">{customer.orderCount} orders</td>
                                 <td className="px-6 py-4 text-right font-black text-blue-700">₹{customer.totalSpent.toLocaleString()}</td>
                             </tr>
                         ))}
                     </DashboardTable>
                 </div>
             </div>
+
+            {/* 🖼️ PRODUCT INSPECTION MODAL */}
+            {selectedProduct && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+                        {/* Modal Header/Image */}
+                        <div className="relative h-72 bg-gray-100">
+                            <img 
+    // Try all common keys and ensure the path is correct
+    src={
+        selectedProduct.mainImage || 
+        selectedProduct.image || 
+        selectedProduct.productImage || 
+        "https://via.placeholder.com/400"
+    } 
+    alt={selectedProduct.name}
+    className="w-full h-full object-cover"
+    // This will catch broken links and show a placeholder instead of a blank space
+    onError={(e) => {
+        e.target.onerror = null; 
+        e.target.src = "https://via.placeholder.com/400?text=Image+Not+Found";
+    }}
+/>
+                            <button 
+                                onClick={() => setSelectedProduct(null)}
+                                className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 backdrop-blur-md text-white p-2 rounded-full transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-8">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-2xl font-black text-gray-900 leading-tight">{selectedProduct.name}</h3>
+                                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-1">Quality Inspection Required</p>
+                                </div>
+                                <span className="text-2xl font-black text-[#2D6A4F]">₹{selectedProduct.price}</span>
+                            </div>
+                            
+                            <div className="bg-gray-50 p-4 rounded-2xl mb-6 border border-gray-100">
+                                <p className="text-sm text-gray-500 leading-relaxed italic">
+                                    "Inspect the handicraft details and image clarity. Approved products will be immediately visible to all customers on the ArtLink marketplace."
+                                </p>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button 
+                                    onClick={() => setSelectedProduct(null)}
+                                    className="flex-1 py-4 rounded-2xl font-bold text-gray-400 hover:bg-gray-100 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => handleToggleApproval(selectedProduct._id)}
+                                    className={`flex-1 py-4 rounded-2xl font-bold text-white shadow-lg transition-all ${selectedProduct.isApproved ? 'bg-red-500 hover:bg-red-600' : 'bg-[#2D6A4F] hover:bg-[#1B4332]'}`}
+                                >
+                                    {selectedProduct.isApproved ? "Disapprove" : "Approve Product"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
-// ... (Table and StatCard components remain the same)
+// Sub-components
 const DashboardTable = ({ title, icon, headers, children }) => (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-50 flex items-center justify-between">

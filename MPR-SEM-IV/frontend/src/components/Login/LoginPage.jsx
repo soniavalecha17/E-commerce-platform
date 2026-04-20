@@ -5,11 +5,13 @@ import API from "../../utils/app";
 const LoginPage = ({ setView, onLoginSuccess }) => { 
     const [formData, setFormData] = useState({ email: '', password: '', role: 'customer' });
     const [loading, setLoading] = useState(false);
+    const [logoClickCount, setLogoClickCount] = useState(0);
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true); 
         try {
+            // We pass the email, password, and the selected role (customer/artisan)
             const res = await API.post("/users/loginuser", formData);
             const { user, accessToken } = res.data.data;
 
@@ -21,9 +23,42 @@ const LoginPage = ({ setView, onLoginSuccess }) => {
             }
         } catch (err) {
             console.error("Login Error:", err.response?.data);
-            alert(err.response?.data?.message || "Login failed");
+            
+            // 🛑 NEW VERIFICATION CHECK
+            // If backend returns 403, it means the artisan is not verified yet
+            if (err.response?.status === 403) {
+                alert(err.response.data.message || "Your account is pending verification. Please wait for Admin approval.");
+            } else {
+                // Regular error (wrong password, user not found, etc.)
+                alert(err.response?.data?.message || "Login failed");
+            }
         } finally {
             setLoading(false); 
+        }
+    };
+
+    // 🛡️ SECURE ADMIN VALIDATION LOGIC
+    const handleAdminPortalClick = () => {
+        const adminEmail = prompt("Restricted Area: Enter Admin Authorized Email to Proceed:");
+        
+        // Authorized email for the system administrator
+        const authorizedEmail = "admin@artlink.com";
+
+        if (adminEmail === authorizedEmail) {
+            alert("Identity Verified. Redirecting to Admin Portal...");
+            setView('admin');
+        } else if (adminEmail !== null) {
+            alert("Access Denied: This email is not registered as a System Administrator.");
+        }
+    };
+
+    // 🕵️ SECRET LOGO CLICK LOGIC
+    const handleSecretLogoClick = () => {
+        const newCount = logoClickCount + 1;
+        setLogoClickCount(newCount);
+        if (newCount === 5) {
+            handleAdminPortalClick();
+            setLogoClickCount(0);
         }
     };
 
@@ -31,7 +66,11 @@ const LoginPage = ({ setView, onLoginSuccess }) => {
         <div className="min-h-screen bg-gray-50 flex flex-col">
             {/* 🌐 TOP NAVIGATION BAR */}
             <nav className="w-full bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center shadow-sm">
-                <div className="flex items-center gap-2">
+                <div 
+                    className="flex items-center gap-2 cursor-pointer select-none" 
+                    onClick={handleSecretLogoClick}
+                    title="ArtLink Marketplace"
+                >
                     <div className="w-10 h-10 bg-[#2D6A4F] rounded-xl flex items-center justify-center text-white font-black text-xl">
                         A
                     </div>
@@ -45,9 +84,9 @@ const LoginPage = ({ setView, onLoginSuccess }) => {
                     >
                         Create Account
                     </button>
-                    {/* 🛡️ PROPER ADMIN PANEL LINK */}
+                    
                     <button 
-                        onClick={() => setView('admin')}
+                        onClick={handleAdminPortalClick}
                         className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-black transition-all shadow-md"
                     >
                         <ShieldCheck size={16} className="text-[#52B788]" />
@@ -127,7 +166,6 @@ const LoginPage = ({ setView, onLoginSuccess }) => {
                 </div>
             </div>
 
-            {/* FOOTER AREA */}
             <footer className="py-6 text-center">
                 <p className="text-xs text-gray-400 uppercase tracking-[0.2em] font-medium">
                     &copy; 2026 ArtLink Artisan Marketplace

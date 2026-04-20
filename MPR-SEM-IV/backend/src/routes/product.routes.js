@@ -1,19 +1,35 @@
 import { Router } from "express";
-import { createProduct } from "../controllers/product.controller.js";
-import {upload} from "../middlewares/multer.middleware.js"
-import { getProducts } from "../controllers/product.controller.js";
-import { getOneProduct } from "../controllers/product.controller.js";
-import { updateProduct } from "../controllers/product.controller.js";
-import { deleteProduct } from "../controllers/product.controller.js";
+import { 
+    createProduct, 
+    getProducts, 
+    getOneProduct, 
+    updateProduct, 
+    deleteProduct, 
+    getArtisanProducts,
+    createOnlineOrder 
+} from "../controllers/product.controller.js"; // Grouped imports for professional clarity
+import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/jwt.middleware.js";
-import { getArtisanProducts } from "../controllers/product.controller.js";
 
-const router=Router();
+const router = Router();
 
-router.route("/createproduct").post(upload.fields([{ name: "productImage", maxCount: 1 }]),verifyJWT,createProduct)
-router.route("/getproducts").get(getProducts)
-router.route("/getoneproduct/:id").get(getOneProduct)
-router.route("/updateproduct/:id").patch(updateProduct)
-router.route("/deleteproduct/:id").delete(deleteProduct)
+// --- 1. STATIC & SENSITIVE ROUTES (Place these at the TOP) ---
+// This prevents dynamic routes from "stealing" the request
+router.route("/create-online-order").post(verifyJWT, createOnlineOrder); 
+router.route("/getproducts").get(getProducts);
 router.route("/my-products").get(verifyJWT, getArtisanProducts);
-export default router
+
+// --- 2. PROTECTED ACTION ROUTES ---
+router.route("/createproduct").post(
+    verifyJWT, 
+    upload.fields([{ name: "productImage", maxCount: 1 }]), 
+    createProduct
+);
+
+// --- 3. DYNAMIC ROUTES (Place these at the BOTTOM) ---
+// Since these use ":id", they are catch-all routes
+router.route("/getoneproduct/:id").get(getOneProduct);
+router.route("/updateproduct/:id").patch(verifyJWT, updateProduct);
+router.route("/deleteproduct/:id").delete(verifyJWT, deleteProduct);
+
+export default router;

@@ -70,15 +70,13 @@ export const registerUser = asyncHandler(async (req, res) => {
         new ApiResponse(201, "User registered successfully", createdUser)
     );
 });
-
 export const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-        throw new ApiError(400, "Email/Username and password are required");
+        throw new ApiError(400, "Email and password are required");
     }
 
-    // Find user by email OR username for easier admin login
     const user = await User.findOne({
         $or: [
             { email: email.toLowerCase() },
@@ -96,9 +94,17 @@ export const loginUser = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Invalid user credentials");
     }
 
+    // --- 🛡️ THE FIX: VERIFICATION GUARD ---
+    // This will catch 'sita' because her status is 'Pending' in your dashboard
+    if (user.role === "artisan" && user.isVerified !== true) {
+        throw new ApiError(
+            403, 
+            "Your account is pending verification. Please wait for Admin approval."
+        );
+    }
+
     const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(user._id);
     
-    // Fetch user without sensitive data to send to frontend
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
     const options = { 

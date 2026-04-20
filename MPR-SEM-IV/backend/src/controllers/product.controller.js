@@ -3,6 +3,43 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadFileonCloudinary } from "../utils/cloudinary.js";
 import { Product } from "../models/product.models.js";
+import Razorpay from "razorpay";
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+// --- PAYMENT LOGIC ---
+
+const createOnlineOrder = asyncHandler(async (req, res) => {
+    console.log("ROUTE HIT");
+  const { amount } = req.body;
+
+  if (!amount || amount <= 0) {
+    throw new ApiError(400, "Invalid amount provided");
+  }
+
+  try {
+    const options = {
+      amount: Math.round(amount * 100), // Ensure it's an integer (paise)
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    
+    if (!order) {
+      throw new ApiError(500, "Failed to create Razorpay order");
+    }
+
+    return res.status(200).json(
+      new ApiResponse(200, "Payment initialized successfully", order)
+    );
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Payment initialization failed");
+  }
+});
 
 const createProduct = asyncHandler(async (req, res) => {
     const { description, name, price, stock, category } = req.body;
@@ -157,5 +194,7 @@ export {
     getOneProduct, 
     updateProduct, 
     deleteProduct,
-    getArtisanProducts
+    getArtisanProducts,
+    createOnlineOrder
 };
+
