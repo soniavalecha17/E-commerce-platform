@@ -119,7 +119,7 @@ const WishlistPage = ({ setView, setActiveTab, wishlist, setWishlist, setCart })
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {wishlist.map(product => (
+            {(Array.isArray(wishlist) ? wishlist : []).map(product => (
               <div key={product._id} className="group bg-white rounded-3xl p-4 border border-transparent hover:border-gray-100 hover:shadow-xl transition-all duration-300">
                 <div className="relative overflow-hidden rounded-2xl mb-4 aspect-square bg-gray-50">
                   <img 

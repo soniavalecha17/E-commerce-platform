@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, ArrowLeft, Loader2, ShoppingBag, MapPin, Package, CheckCircle2 } from 'lucide-react';
+import { Trash2, ArrowLeft, Loader2, ShoppingBag, MapPin, Package, CheckCircle2, Wallet, CreditCard } from 'lucide-react';
 import API from "../utils/app";
 
 const CartPage = ({ setView, setActiveTab, cart, setCart }) => {
   const [loading, setLoading] = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [step, setStep] = useState('cart'); // 'cart' or 'checkout'
+  const [step, setStep] = useState('cart'); // 'cart', 'checkout', or 'success'
+  const [paymentMethod, setPaymentMethod] = useState('upi'); // 'upi', 'card', or 'cod'
   
   const [address, setAddress] = useState("Default Delivery Address, Mumbai, Maharashtra");
 
   const fetchCart = async () => {
     try {
       const res = await API.get("/cart/");
-      // Check for nested items in data.data or just data
       const items = res.data?.data?.items || res.data?.items || res.data || [];
       setCart(Array.isArray(items) ? items : []);
     } catch (err) {
@@ -47,6 +47,68 @@ const CartPage = ({ setView, setActiveTab, cart, setCart }) => {
     }
   };
 
+  const handleRazorpayPayment = async (orderPayload) => {
+    try {
+      if (!window.Razorpay) {
+        alert("Razorpay SDK failed to load. Please verify index.html script tag.");
+        setIsPlacingOrder(false);
+        return;
+      }
+
+      const { data } = await API.post("/products/create-online-order", { amount: total });
+      const rzpOrder = data.data || data;
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID, 
+        amount: rzpOrder.amount,
+        currency: rzpOrder.currency,
+        name: "ArtLink",
+        description: "Artisan Product Purchase Secure Checkout",
+        order_id: rzpOrder.id,
+        handler: async function (response) {
+          await finalizeOrder({ 
+            ...orderPayload, 
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+            paymentStatus: "Paid" 
+          });
+        },
+        prefill: {
+          name: "Customer",
+          address: address
+        },
+        theme: { color: "#2D6A4F" },
+        modal: { 
+          ondismiss: () => { setIsPlacingOrder(false); } 
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error("Razorpay initiation error:", err);
+      alert("Online portal initialization failed. Please choose Cash on Delivery.");
+      setIsPlacingOrder(false);
+    }
+  };
+
+  const finalizeOrder = async (payload) => {
+    try {
+      const res = await API.post("/orders/createorder", payload);
+      if (res.status === 201 || res.data.success) {
+        setCart([]); 
+        setStep('success');
+        setTimeout(() => setActiveTab('orders'), 2500);
+      }
+    } catch (err) {
+      console.error("Order Placement Failed:", err);
+      alert("Checkout failed. Please try again.");
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
   const handleFinalCheckout = async () => {
     if (!cart || cart.length === 0) return;
     setIsPlacingOrder(true);
@@ -56,26 +118,16 @@ const CartPage = ({ setView, setActiveTab, cart, setCart }) => {
       quantity: item.quantity
     })).filter(item => item.productId);
 
-    const orderData = { 
+    const payload = { 
       orderItems, 
       address, 
-      paymentMethod: "COD",
-      paymentStatus: "Pending" 
+      paymentMethod: paymentMethod.toUpperCase(),
     };
 
-    try {
-      const res = await API.post("/orders/createorder", orderData);
-      if (res.status === 201 || res.data.success) {
-        setCart([]); 
-        setStep('success');
-        // Redirect to orders tab after success
-        setTimeout(() => setActiveTab('orders'), 2500);
-      }
-    } catch (err) {
-      console.error("Order Placement Failed:", err);
-      alert("Checkout failed. Please try again.");
-    } finally {
-      setIsPlacingOrder(false);
+    if (paymentMethod === 'cod') {
+      await finalizeOrder({ ...payload, paymentStatus: "Pending" });
+    } else {
+      await handleRazorpayPayment(payload);
     }
   };
 
@@ -133,9 +185,7 @@ const CartPage = ({ setView, setActiveTab, cart, setCart }) => {
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="p-6 space-y-4">
                     {cart.map(item => {
-                      // Safety check for nested product data
                       const product = item.productId || item.product || {};
-                      // Check multiple possible keys for the image
                       const imageUrl = product.mainImage || product.productImage || product.image || "/placeholder.png";
 
                       return (
@@ -183,11 +233,46 @@ const CartPage = ({ setView, setActiveTab, cart, setCart }) => {
                   </div>
                   <div>
                       <label className="block text-sm font-bold text-gray-700 mb-4">Payment Method</label>
-                      <div className="max-w-xs">
-                          <div className="p-4 rounded-2xl border-2 border-[#2D6A4F] bg-[#2D6A4F]/5 text-[#2D6A4F] flex flex-col items-center gap-2">
-                              <Package size={24} />
-                              <span className="font-bold text-sm">Cash on Delivery</span>
-                          </div>
+                      
+                      <div className="grid grid-cols-3 gap-4 w-full">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('upi')}
+                          className={`p-5 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
+                            paymentMethod === 'upi' 
+                              ? 'border-[#2D6A4F] bg-[#2D6A4F]/5 text-[#2D6A4F]' 
+                              : 'border-gray-100 bg-white text-gray-400'
+                          }`}
+                        >
+                          <Wallet size={24} className={paymentMethod === 'upi' ? 'text-[#2D6A4F]' : 'text-gray-400'} />
+                          <span className="font-bold text-sm text-center whitespace-nowrap">Online UPI</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('card')}
+                          className={`p-5 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
+                            paymentMethod === 'card' 
+                              ? 'border-[#2D6A4F] bg-[#2D6A4F]/5 text-[#2D6A4F]' 
+                              : 'border-gray-100 bg-white text-gray-400'
+                          }`}
+                        >
+                          <CreditCard size={24} className={paymentMethod === 'card' ? 'text-[#2D6A4F]' : 'text-gray-400'} />
+                          <span className="font-bold text-sm text-center whitespace-nowrap">Cards</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('cod')}
+                          className={`p-5 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
+                            paymentMethod === 'cod' 
+                              ? 'border-[#2D6A4F] bg-[#2D6A4F]/5 text-[#2D6A4F]' 
+                              : 'border-gray-100 bg-white text-gray-400'
+                          }`}
+                        >
+                          <Package size={24} className={paymentMethod === 'cod' ? 'text-[#2D6A4F]' : 'text-gray-400'} />
+                          <span className="font-bold text-sm text-center whitespace-nowrap">Cash on Delivery</span>
+                        </button>
                       </div>
                   </div>
               </div>
@@ -220,7 +305,7 @@ const CartPage = ({ setView, setActiveTab, cart, setCart }) => {
                     className="w-full bg-[#2D6A4F] text-white py-4 rounded-2xl font-bold text-lg hover:bg-[#1B4332] transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50"
                 >
                     {isPlacingOrder ? <Loader2 className="animate-spin" /> : <Package size={22} />}
-                    {step === 'cart' ? "Proceed to Checkout" : "Confirm Order"}
+                    {step === 'cart' ? "Proceed to Checkout" : paymentMethod === 'cod' ? "Confirm Order" : "Pay Securely"}
                 </button>
             </div>
         </div>

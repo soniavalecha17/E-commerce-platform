@@ -57,6 +57,9 @@ const CustomerShop = ({view, setView, setActiveTab, wishlist, toggleWishlist, ca
 
   const cartCount = (cart || []).reduce((acc, item) => acc + (item.quantity || 1), 0);
 
+  // Safe layout count tracking for navigation display badging
+  const safeWishlistCount = Array.isArray(wishlist) ? wishlist.length : 0;
+
   return (
     <div className="min-h-screen bg-white">
       {/* NAVBAR */}
@@ -83,9 +86,9 @@ const CustomerShop = ({view, setView, setActiveTab, wishlist, toggleWishlist, ca
               className="flex items-center gap-2 text-gray-500 hover:text-[#2D6A4F] transition-colors relative"
             >
               <Heart size={20} /> Wishlist
-              {wishlist?.length > 0 && (
+              {safeWishlistCount > 0 && (
                 <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full">
-                  {wishlist.length}
+                  {safeWishlistCount}
                 </span>
               )}
             </button>
@@ -105,8 +108,6 @@ const CustomerShop = ({view, setView, setActiveTab, wishlist, toggleWishlist, ca
         </div>
 
         <div className="flex items-center gap-4">
-          
-          
           <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
             <div className="text-right">
               <p className="text-sm font-bold text-gray-900">{user?.username || "Guest"}</p>
@@ -189,7 +190,14 @@ const CustomerShop = ({view, setView, setActiveTab, wishlist, toggleWishlist, ca
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
             {filteredProducts.map(product => {
-              const isWishlisted = (wishlist || []).some(item => item._id === product._id);
+              // Strict defensive mapping checklist to evaluate raw vs populated backend references securely
+              const isWishlisted = Array.isArray(wishlist) 
+                ? wishlist.some(item => {
+                    if (!item) return false;
+                    if (typeof item === 'string') return item === product._id;
+                    return item._id === product._id || item.productId === product._id || item.productId?._id === product._id;
+                  })
+                : false;
 
               return (
                 <div key={product._id} className="group border border-transparent hover:border-gray-100 rounded-3xl p-2 transition-all hover:shadow-md">

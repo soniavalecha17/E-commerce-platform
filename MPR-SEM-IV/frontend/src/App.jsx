@@ -50,8 +50,10 @@ function App() {
       ]);
       const cartItems = cartRes.data?.data?.items || cartRes.data?.items || [];
       setCart(Array.isArray(cartItems) ? cartItems : []);
-      const wishlistData = wishlistRes.data?.data || wishlistRes.data || [];
-      setWishlist(Array.isArray(wishlistData) ? wishlistData : []);
+      
+      // Extract wishlist data array dynamically from common backend wrappers
+      const rawWishlist = wishlistRes.data?.data?.items || wishlistRes.data?.data || wishlistRes.data || [];
+      setWishlist(Array.isArray(rawWishlist) ? rawWishlist : []);
     } catch (err) {
       console.error("Error fetching initial data:", err);
     }
@@ -60,6 +62,7 @@ function App() {
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
+    setAuthView('login'); // Clear admin route bypass on explicit authentication
     
     if (userData.role === 'admin') {
       setView('admin');
@@ -104,14 +107,25 @@ function App() {
     if (user?.role !== 'customer') return; 
     try {
       const res = await API.post("/wishlist/toggle", { productId: product._id });
-      if (res.data?.success && Array.isArray(res.data.data)) {
-        setWishlist(res.data.data);
+      
+      // Dynamic resolution check: extract if wrapped in res.data.data.items or res.data.data
+      const backendWishlist = res.data?.data?.items || res.data?.data || res.data;
+      
+      if (res.data?.success && Array.isArray(backendWishlist)) {
+        setWishlist(backendWishlist);
       } else {
+        // Safe, crash-proof local fallback toggle state mutation
         setWishlist((prev) => {
-          const isExisting = prev.find((item) => item._id === product._id);
+          const cleanPrev = Array.isArray(prev) ? prev : [];
+          const isExisting = cleanPrev.find((item) => {
+            if (!item) return false;
+            if (typeof item === 'string') return item === product._id;
+            return item._id === product._id || item.productId === product._id;
+          });
+
           return isExisting 
-            ? prev.filter((item) => item._id !== product._id)
-            : [...prev, product];
+            ? cleanPrev.filter((item) => (typeof item === 'string' ? item !== product._id : item._id !== product._id))
+            : [...cleanPrev, product];
         });
       }
     } catch (err) {
@@ -119,14 +133,12 @@ function App() {
     }
   };
 
-  // --- 🔥 UPDATED RENDER LOGIC 🔥 ---
-
-  // 1. If the authView is 'admin', show Admin Panel immediately (No user check)
-  if (authView === 'admin') {
+  // 1. Unauthenticated Global Explicit Route Overrides
+  if (authView === 'admin' && !user) {
     return <AdminDashboard user={user} setView={setAuthView} onLogout={handleLogout} />;
   }
 
-  // 2. If no user, show Login or Register
+  // 2. Fallback to Authentication Gateways if context state is missing
   if (!user) {
     return authView === 'login' ? (
       <LoginPage onLoginSuccess={handleLoginSuccess} setView={setAuthView} />
@@ -135,9 +147,10 @@ function App() {
     );
   }
 
-  // 3. Authenticated Views
+  // 3. Authenticated Structural Rendering Tree
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Floating Logout Trigger */}
       <button 
         onClick={handleLogout}
         className="fixed bottom-5 right-5 bg-red-600 text-white px-4 py-2 rounded-full shadow-2xl z-[9999] font-bold hover:bg-red-700 transition-all text-[10px] uppercase tracking-wider"
@@ -145,11 +158,13 @@ function App() {
         Logout
       </button>
 
-      {user.role === 'admin' || authView === 'admin' ? (
+      {/* Primary Role Switches */}
+      {user.role === 'admin' ? (
         <AdminDashboard user={user} setView={setAuthView} onLogout={handleLogout} />
       ) : user.role === 'artisan' ? (
         <ArtisanPage setView={setView} user={user} onLogout={handleLogout} />
       ) : (
+        /* Customer Portal Component Branches */
         <>
           {activeTab === 'shop' && (
             <CustomerShop 
@@ -173,6 +188,7 @@ function App() {
         </>
       )}
       
+      {/* Nested Route Outlets */}
       <Outlet context={{ cart, addToCart, view, user }} />
     </div>
   )
