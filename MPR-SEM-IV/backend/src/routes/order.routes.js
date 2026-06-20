@@ -1,17 +1,22 @@
 import { Router } from "express";
-import { createOrder } from "../controllers/order.controller.js";
-import { getOrders } from "../controllers/order.controller.js";
-import { getOneOrder } from "../controllers/order.controller.js";
-import { updateOrderStatus } from "../controllers/order.controller.js";
-import { deleteOrder } from "../controllers/order.controller.js";
+import { 
+    createOrder, 
+    getOrders, 
+    getOneOrder, 
+    updateOrderStatus, 
+    deleteOrder 
+} from "../controllers/order.controller.js";
 import { verifyJWT } from "../middlewares/jwt.middleware.js";
 
-const router=Router();
+const router = Router();
 
-router.route("/createorder").post(verifyJWT,createOrder);
-router.route("/getorders").get(verifyJWT,getOrders);
-router.route("/getoneorder/:id").get(getOneOrder);
-router.route("/updateorderstatus/:id").patch(updateOrderStatus);
-router.route("/deleteorder/:id").delete(deleteOrder);
+// Secure all routes with verifyJWT
+router.use(verifyJWT); 
 
-export default router
+router.route("/createorder").post(createOrder);
+router.route("/getorders").get(getOrders); // Renamed for better REST practice
+router.route("/:id").get(getOneOrder);     // Clean URL structure
+router.route("/updateorderstatus/:orderId").patch(updateOrderStatus);
+router.route("/delete/:id").delete(deleteOrder);
+
+export default router;

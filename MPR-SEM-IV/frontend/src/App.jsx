@@ -5,12 +5,13 @@ import API from "./utils/app";
 import CustomerShop from './components/CustomerShop'
 import WishlistPage from './components/WishlistPage' 
 import CartPage from './components/CartPage' 
-import OrdersPage from './components/OrdersPage' 
 import ArtisanPage from './components/Artisan/ArtisanPage'
 import AdminDashboard from './components/AdminDashboard' 
 import LoginPage from './components/Login/LoginPage'
 import RegisterPage from './components/RegisterPage' 
 import CheckoutPage from './components/CheckoutPage'
+import ArtisanOrdersPage from './components/Artisan/ArtisanOrdersPage';
+import OrdersPage from './components/OrdersPage';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -51,7 +52,6 @@ function App() {
       const cartItems = cartRes.data?.data?.items || cartRes.data?.items || [];
       setCart(Array.isArray(cartItems) ? cartItems : []);
       
-      // Extract wishlist data array dynamically from common backend wrappers
       const rawWishlist = wishlistRes.data?.data?.items || wishlistRes.data?.data || wishlistRes.data || [];
       setWishlist(Array.isArray(rawWishlist) ? rawWishlist : []);
     } catch (err) {
@@ -62,7 +62,7 @@ function App() {
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
-    setAuthView('login'); // Clear admin route bypass on explicit authentication
+    setAuthView('login');
     
     if (userData.role === 'admin') {
       setView('admin');
@@ -107,14 +107,11 @@ function App() {
     if (user?.role !== 'customer') return; 
     try {
       const res = await API.post("/wishlist/toggle", { productId: product._id });
-      
-      // Dynamic resolution check: extract if wrapped in res.data.data.items or res.data.data
       const backendWishlist = res.data?.data?.items || res.data?.data || res.data;
       
       if (res.data?.success && Array.isArray(backendWishlist)) {
         setWishlist(backendWishlist);
       } else {
-        // Safe, crash-proof local fallback toggle state mutation
         setWishlist((prev) => {
           const cleanPrev = Array.isArray(prev) ? prev : [];
           const isExisting = cleanPrev.find((item) => {
@@ -133,12 +130,10 @@ function App() {
     }
   };
 
-  // 1. Unauthenticated Global Explicit Route Overrides
   if (authView === 'admin' && !user) {
     return <AdminDashboard user={user} setView={setAuthView} onLogout={handleLogout} />;
   }
 
-  // 2. Fallback to Authentication Gateways if context state is missing
   if (!user) {
     return authView === 'login' ? (
       <LoginPage onLoginSuccess={handleLoginSuccess} setView={setAuthView} />
@@ -147,10 +142,8 @@ function App() {
     );
   }
 
-  // 3. Authenticated Structural Rendering Tree
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Floating Logout Trigger */}
       <button 
         onClick={handleLogout}
         className="fixed bottom-5 right-5 bg-red-600 text-white px-4 py-2 rounded-full shadow-2xl z-[9999] font-bold hover:bg-red-700 transition-all text-[10px] uppercase tracking-wider"
@@ -158,13 +151,11 @@ function App() {
         Logout
       </button>
 
-      {/* Primary Role Switches */}
       {user.role === 'admin' ? (
         <AdminDashboard user={user} setView={setAuthView} onLogout={handleLogout} />
       ) : user.role === 'artisan' ? (
         <ArtisanPage setView={setView} user={user} onLogout={handleLogout} />
       ) : (
-        /* Customer Portal Component Branches */
         <>
           {activeTab === 'shop' && (
             <CustomerShop 
@@ -183,12 +174,15 @@ function App() {
             <CheckoutPage setActiveTab={setActiveTab} cart={cart} setCart={setCart} user={user} />
           )}
           {activeTab === 'orders' && (
-            <OrdersPage setView={setView} setActiveTab={setActiveTab} />
+            user.role === 'artisan' ? (
+              <ArtisanOrdersPage setView={setView} setActiveTab={setActiveTab} />
+            ) : (
+              <OrdersPage setView={setView} setActiveTab={setActiveTab} />
+            )
           )}
         </>
       )}
       
-      {/* Nested Route Outlets */}
       <Outlet context={{ cart, addToCart, view, user }} />
     </div>
   )

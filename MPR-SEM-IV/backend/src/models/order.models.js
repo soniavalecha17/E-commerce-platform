@@ -30,8 +30,18 @@ const orderSchema = new mongoose.Schema(
     address: { type: String, required: true },
     status: {
       type: String,
-      enum: ['PENDING', 'CANCELLED', 'DELIVERED', 'SHIPPED'],
+      // Added PROCESSING to the workflow
+      enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
       default: 'PENDING',
+    },
+    // New fields for tracking
+    trackingNumber: { 
+      type: String, 
+      default: null 
+    },
+    lastUpdated: { 
+      type: Date, 
+      default: Date.now 
     },
   },
   { timestamps: true }

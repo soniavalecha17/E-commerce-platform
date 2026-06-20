@@ -103,6 +103,7 @@ function AddProduct({ onBack }) {
                     <option>Jewelry</option>
                     <option>Textiles</option>
                     <option>Woodwork</option>
+                    <option>Home Decor</option>
                   </select>
                 </div>
               </div>

@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 
 // --- CREATE ORDER ---
 const createOrder = asyncHandler(async (req, res) => {
+    console.log("Payload received:", JSON.stringify(req.body, null, 2));
     const { orderItems, address } = req.body;
 
     if (!req.user?._id) {
@@ -15,6 +16,7 @@ const createOrder = asyncHandler(async (req, res) => {
     const userId = req.user._id;
 
     if (!orderItems || orderItems.length === 0) {
+        console.error("Order failed: No items");
         throw new ApiError(400, "Your cart is empty");
     }
 
@@ -136,24 +138,30 @@ const getOneOrder = asyncHandler(async (req, res) => {
 });
 
 // --- UPDATE STATUS ---
+// --- UPDATE STATUS ---
 const updateOrderStatus = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+    const { orderId } = req.params; // Ensure this matches route :orderId
     const { status } = req.body;
 
     if (!req.user?._id) {
         throw new ApiError(401, "Unauthorized access");
     }
 
-    const validStatuses = ["PENDING", "CANCELLED", "DELIVERED", "SHIPPED"];
+    const validStatuses = ["PENDING", "PROCESSING", "DELIVERED", "SHIPPED"];
     if (!validStatuses.includes(status?.toUpperCase())) {
         throw new ApiError(400, "Invalid status");
     }
 
     const order = await Order.findByIdAndUpdate(
-        id,
+        orderId, // This now matches your destructured variable
         { $set: { status: status.toUpperCase() } },
         { new: true }
     );
+
+    // CRITICAL: Check if order exists!
+    if (!order) {
+        throw new ApiError(404, "Order not found");
+    }
 
     return res.status(200).json(new ApiResponse(200, "Order status updated", order));
 });

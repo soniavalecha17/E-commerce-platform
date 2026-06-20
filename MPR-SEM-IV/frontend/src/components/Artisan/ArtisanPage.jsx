@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import ArtisanDashboard from "./ArtisanDashboard";
 import ProductsPage from "./ProductsPage";
 import AddProduct from "./AddProduct"; 
-import OrdersPage from "./OrdersPage";
+import OrdersPage from "./ArtisanOrdersPage";
 import ReviewsPage from "./ReviewsPage";
 import ProfilePage from "./ProfilePage";
 import VoiceAssistant from "./VoiceAssistant";

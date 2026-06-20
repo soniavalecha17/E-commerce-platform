@@ -67,20 +67,28 @@ const CheckoutPage = ({ setActiveTab, cart, user, setCart }) => {
     }
   };
 
-  const finalizeOrder = async (payload) => {
-    try {
-      const response = await API.post("/orders/createorder", payload);
-      if (response.data.success || response.status === 201 || response.status === 200) {
-        setCart([]); 
-        setStep(3);  
-      }
-    } catch (err) {
-      console.error("Order finalization error:", err);
-      alert("Transaction processed but order creation failed.");
-    } finally {
-      setLoading(false);
+  // Update this in your CheckoutPage.jsx
+const finalizeOrder = async (payload) => {
+  try {
+    // Add ?t=${Date.now()} to the URL to bypass the 304 cache
+    console.log("DEBUG: Final Payload is:", JSON.stringify(payload));
+    const response = await API.post(`/orders/createorder?t=${Date.now()}`, payload);
+    
+    if (response.data.success || response.status === 201 || response.status === 200) {
+      setCart([]);
+      setStep(3);
     }
-  };
+  } catch (err) {
+    console.error("Order finalization error:", err);
+    // Log the full response so you can see the actual error
+    if (err.response) {
+      console.error("Server Error Details:", err.response.data);
+    }
+    alert("Transaction processed but order creation failed.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handlePlaceOrder = async () => {
     if (!shippingDetails.address.trim()) return alert("Please enter a valid shipping destination.");
@@ -96,25 +104,33 @@ const CheckoutPage = ({ setActiveTab, cart, user, setCart }) => {
       paymentMethod: paymentMethod.toUpperCase()
     };
 
-    if (paymentMethod === 'cod') {
-      await finalizeOrder({ ...payload, paymentStatus: "Pending" });
-    } else {
-      await handleRazorpayPayment(payload);
+    console.log("DEBUG: Final Payload Object:", payload); 
+    if (!payload.orderItems || payload.orderItems.length === 0) {
+        alert("Cart is empty! Cannot proceed.");
+        return;
+    }// DEBUG: Check if data is correct
+
+    try {
+      if (paymentMethod === 'cod') {
+        await finalizeOrder({ ...payload, paymentStatus: "Pending" });
+      } else {
+        await handleRazorpayPayment(payload);
+      }
+    } catch (error) {
+      console.error("--- FULL ERROR FROM FRONTEND ---");
+      // This will show exactly why the request failed (e.g., 401 Unauthorized, 404 Not Found)
+      if (error.response) {
+        console.error("Data:", error.response.data);
+        console.error("Status:", error.response.status);
+        alert(`Checkout failed: ${error.response.data.message || "Server Error"}`);
+      } else {
+        console.error("Message:", error.message);
+        alert("Checkout failed: Could not reach the server.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
-
-  if (step === 3) return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center">
-      <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-6 text-green-600">
-        <CheckCircle2 size={56} className="animate-bounce" />
-      </div>
-      <h1 className="text-3xl font-black text-gray-900 mb-2">Order Confirmed!</h1>
-      <p className="text-gray-500 mb-8 max-w-sm">Thank you for supporting local artisans!</p>
-      <button onClick={() => setActiveTab('shop')} className="bg-[#2D6A4F] text-white px-10 py-4 rounded-2xl font-bold hover:bg-[#1B4332] transition-all shadow-md">
-        Return to Marketplace
-      </button>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 text-gray-800">

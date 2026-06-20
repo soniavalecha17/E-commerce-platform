@@ -1,18 +1,14 @@
 import express from 'express';
-import { getDashboardStats } from '../controllers/artisan.controller.js'
-import { verifyJWT} from "../middlewares/jwt.middleware.js"
+import { getDashboardStats, getArtisanOrders } from '../controllers/artisan.controller.js'; // Ensure you import both
+import { verifyJWT } from "../middlewares/jwt.middleware.js";
 
 const router = express.Router();
 
-/**
- * @route   GET /api/artisan/dashboard-stats
- * @desc    Get aggregated stats for the Artisan Dashboard
- * @access  Private (Artisan only)
- */
-router.get(
-    '/dashboard-stats', 
-    verifyJWT,
-    getDashboardStats
-);
+// Stats Route
+router.route('/dashboard-stats').get(verifyJWT, getDashboardStats);
+
+// Artisan Orders Route
+// Matches your frontend API.get("/orders/artisan/all", ...)
+router.route('/orders/all').get(verifyJWT, getArtisanOrders);
 
 export default router;

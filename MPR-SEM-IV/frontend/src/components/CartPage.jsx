@@ -95,7 +95,8 @@ const CartPage = ({ setView, setActiveTab, cart, setCart }) => {
 
   const finalizeOrder = async (payload) => {
     try {
-      const res = await API.post("/orders/createorder", payload);
+      console.log("Payload:", payload)
+      const res = await API.post("/orders/createorder",payload)
       if (res.status === 201 || res.data.success) {
         setCart([]); 
         setStep('success');

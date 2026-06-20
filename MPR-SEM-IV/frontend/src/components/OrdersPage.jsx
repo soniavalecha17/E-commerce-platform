@@ -9,7 +9,7 @@ const OrdersPage = ({ setActiveTab }) => {
   const fetchOrders = async () => {
     try {
       // Your backend route is getOrders, ensure the URL matches your router
-      const res = await API.get("/orders/getorders"); 
+      const res = await API.get("/orders/getorders", { withCredentials: true });
       // Your ApiResponse class wraps data in a 'data' field
       const data = res.data?.data || [];
       setOrders(Array.isArray(data) ? data : []);

@@ -4,6 +4,8 @@ const API = axios.create({
   // Use your actual backend URL
   baseURL: "http://localhost:4000/api/v1",
   withCredentials: true, // This is the most important part for Cookies
+  headers: {
+    "Content-Type": "application/json"}
 });
 
 // We don't need the interceptor if we are using HTTP-Only Cookies.
